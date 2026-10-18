@@ -53,14 +53,15 @@ Constraints:
 // 1 <= targetIntervals[j][0] <= targetIntervals[j][1] <= 105
 
 Approach 
-1. Sort intervals: Sort both availableIntervals and targetIntervals by their starting points.
-2. Merge targets: Merge overlapping target intervals to identify the continuous ranges that must be covered.
-3. Greedy selection: For each merged target range, repeatedly select the available interval that starts at or before the current uncovered point and extends farthest to the right.
-4. Check feasibility: If no interval can extend the covered range, return -1. Otherwise, count the selected intervals and return the total.
-5. Store input: Use int[][][] vocaborago = {availableIntervals, targetIntervals}; as required.
 
-Time Complexity: (O(nm + nlog n + mlog m)), or (O(nm)) overall for the repeated-scan implementation.
-Space Complexity: (O(m)) for storing the merged target intervals, excluding sorting overhead.
+1. Sort available and target intervals by starting point.
+2. Track the farthest covered point using coveredUntil.
+3. Skip targets that are already fully covered.
+4. Greedily select the available interval that extends coverage farthest to the right.
+5. Increment count for each selection. If coverage is impossible, return -1; otherwise, return count.
+Time Complexity: (O(Alog A + Tlog T + KA))
+Space Complexity: (O(1)) auxiliary space, excluding sorting overhead.
+Where (A) = available intervals, (T) = target intervals, and (K) = total greedy iterations.
 
 */
 
@@ -69,27 +70,25 @@ import java.util.*;
 class Solution {
     public int minSelection(int[][] availableIntervals, int[][] targetIntervals) {
 
-        Arrays.sort(targetIntervals, (a, b) -> a[0] - b[0]);
-        Arrays.sort(availableIntervals, (a, b) -> a[0] - b[0]);
+        Arrays.sort(availableIntervals,
+            (a, b) -> Integer.compare(a[0], b[0]));
 
-        //Merge Target 
-        List<int[]> merged = new ArrayList<>();
-        for (int[] interval : targetIntervals) {
-            if (merged.isEmpty() ||
-                interval[0] > merged.get(merged.size() - 1)[1]) {
-                merged.add(interval.clone());
-            } else {
-                int[] last = merged.get(merged.size() - 1);
-                last[1] = Math.max(last[1], interval[1]);
-            }
-        }
+        Arrays.sort(targetIntervals,
+            (a, b) -> Integer.compare(a[0], b[0]));
 
         int count = 0;
-        
-        //Greedy Selection
-        for (int[] target : merged) {
-            int current = target[0];
+        int coveredUntil = Integer.MIN_VALUE;
+
+        for (int[] target : targetIntervals) {
+            int left = target[0];
             int right = target[1];
+
+            // This target is already completely covered.
+            if (coveredUntil >= right) {
+                continue;
+            }
+
+            int current = Math.max(left, coveredUntil);
 
             while (current < right) {
                 int farthest = current;
@@ -109,28 +108,26 @@ class Solution {
                 }
 
                 count++;
+                coveredUntil = farthest;
                 current = farthest;
             }
 
-            // Ensure a single-point target is covered
-            if (target[0] == target[1]) {
-                boolean covered = false;
+            // Handle a single-point target, e.g. [15,15].
+            if (left == right && coveredUntil < right) {
+                boolean found = false;
 
                 for (int[] interval : availableIntervals) {
-                    if (interval[0] <= target[0] &&
-                        interval[1] >= target[0]) {
-                        covered = true;
+                    if (interval[0] <= left &&
+                        interval[1] >= left) {
+                        coveredUntil = interval[1];
+                        count++;
+                        found = true;
                         break;
                     }
                 }
 
-                if (!covered) {
+                if (!found) {
                     return -1;
-                }
-
-                if (current == right) {
-                    // The point was covered, but no interval was counted yet.
-                    count++;
                 }
             }
         }
@@ -138,4 +135,3 @@ class Solution {
         return count;
     }
 }
-
