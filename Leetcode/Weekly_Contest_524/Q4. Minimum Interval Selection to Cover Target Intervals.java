@@ -54,82 +54,71 @@ Constraints:
 
 Approach 
 
-1. Sort available and target intervals by starting point.
-2. Track the farthest covered point using coveredUntil.
-3. Skip targets that are already fully covered.
-4. Greedily select the available interval that extends coverage farthest to the right.
-5. Increment count for each selection. If coverage is impossible, return -1; otherwise, return count.
-Time Complexity: (O(Alog A + Tlog T + KA))
-Space Complexity: (O(1)) auxiliary space, excluding sorting overhead.
-Where (A) = available intervals, (T) = target intervals, and (K) = total greedy iterations.
+1. Build a reach array storing the farthest endpoint for each starting position.
+2. Compute prefix maximums so reach[i] gives the farthest endpoint among intervals starting at or before i.
+3. Sort target intervals by starting point and merge overlapping targets.
+4. Track coverage using covered and greedily extend it using reach[curr].
+5. Increment count for each selection. If coverage cannot be extended, return -1; otherwise, return count.
+Time Complexity: (O(A+M+Tlog T))
+Space Complexity: (O(M+T))
+Where (A) = available intervals, (T) = target intervals, and (M) = maximum coordinate (100001).
 
 */
 
-import java.util.*;
-
 class Solution {
     public int minSelection(int[][] availableIntervals, int[][] targetIntervals) {
+        int max = 100001;
+        int[] reach = new int[max + 1];
 
-        Arrays.sort(availableIntervals,
-            (a, b) -> Integer.compare(a[0], b[0]));
+        for (int[] a : availableIntervals) {
+            reach[a[0]] = Math.max(reach[a[0]], a[1]);
+        }
 
-        Arrays.sort(targetIntervals,
-            (a, b) -> Integer.compare(a[0], b[0]));
+        for (int i = 1; i <= max; i++) {
+            reach[i] = Math.max(reach[i], reach[i - 1]);
+        }
 
-        int count = 0;
-        int coveredUntil = Integer.MIN_VALUE;
+        int[][] sorted = targetIntervals.clone();
 
-        for (int[] target : targetIntervals) {
-            int left = target[0];
-            int right = target[1];
+        Arrays.sort(sorted, (a, b) -> Integer.compare(a[0], b[0]));
 
-            // This target is already completely covered.
-            if (coveredUntil >= right) {
-                continue;
+        int count = 0, covered = 0, i = 0, n = sorted.length;
+
+        while (i < n) {
+            int L = sorted[i][0];
+            int R = sorted[i][1];
+            i++;
+
+            while (i < n && sorted[i][0] <= R) {
+                R = Math.max(R, sorted[i][1]);
+                i++;
             }
 
-            int current = Math.max(left, coveredUntil);
+            int curr;
 
-            while (current < right) {
-                int farthest = current;
-
-                for (int[] interval : availableIntervals) {
-                    if (interval[0] > current) {
-                        break;
-                    }
-
-                    if (interval[1] > farthest) {
-                        farthest = interval[1];
-                    }
-                }
-
-                if (farthest == current) {
+            if (covered >= L) {
+                curr = covered;
+            } else {
+                if (reach[L] < L) {
                     return -1;
                 }
 
                 count++;
-                coveredUntil = farthest;
-                current = farthest;
+                curr = reach[L];
             }
 
-            // Handle a single-point target, e.g. [15,15].
-            if (left == right && coveredUntil < right) {
-                boolean found = false;
+            while (curr < R) {
+                int next = reach[curr];
 
-                for (int[] interval : availableIntervals) {
-                    if (interval[0] <= left &&
-                        interval[1] >= left) {
-                        coveredUntil = interval[1];
-                        count++;
-                        found = true;
-                        break;
-                    }
-                }
-
-                if (!found) {
+                if (next <= curr) {
                     return -1;
                 }
+
+                count++;
+                curr = next;
             }
+
+            covered = curr;
         }
 
         return count;
